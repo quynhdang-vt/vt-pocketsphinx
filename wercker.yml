@@ -1,0 +1,124 @@
+# Build definition
+box: golang:1.8.3
+build:
+  # The steps that will be executed on build
+  steps:
+    - create-file:
+        name: write build-manifest
+        filename: $WERCKER_SOURCE_DIR/build-manifest.yml
+        overwrite: true
+        content: |
+            git_repo: $WERCKER_GIT_REPOSITORY
+            git_branch: $WERCKER_GIT_BRANCH
+            git_commit: $WERCKER_GIT_COMMIT
+            git_owner: $WERCKER_GIT_OWNER
+            wercker_run: $WERCKER_RUN_URL
+            wercker_app: $WERCKER_APPLICATION_URL
+
+    - create-file:
+        name: write netrc
+        filename: $HOME/.netrc
+        content: machine github.com login $GITHUB_ACCESS_TOKEN
+        overwrite: true
+        hide-from-log: true
+
+    - setup-go-workspace
+
+    - script:
+        name: go version
+        code: |
+          go version
+          go env
+
+    # Get dependencies, test, and build
+    - script:
+        name: make (deps, test, build)
+        code: |
+          make
+
+    - script:
+        name: Save binaries
+        code: |
+          cd $GOPATH/src/$WERCKER_GIT_DOMAIN/$WERCKER_GIT_OWNER/$WERCKER_GIT_REPOSITORY
+          if [ -d server ]; then cd server; fi
+          if [ -f $WERCKER_GIT_REPOSITORY ]; then mv -v $WERCKER_GIT_REPOSITORY $WERCKER_OUTPUT_DIR/; fi
+          if [ -f server ]; then mv -v server $WERCKER_OUTPUT_DIR/$WERCKER_GIT_REPOSITORY; fi
+          if [ ! -f server && ! -f $WERCKER_GIT_REPOSITORY ]; then false; fi
+          git rev-parse --short HEAD > $WERCKER_OUTPUT_DIR/$WERCKER_GIT_REPOSITORY.build
+          git --no-pager show -s --format='%an <%ae>' $(git rev-parse HEAD) > $WERCKER_OUTPUT_DIR/$WERCKER_GIT_REPOSITORY.author
+          mv conf $WERCKER_OUTPUT_DIR/
+          mv iron.json $WERCKER_OUTPUT_DIR/
+          mv nuance/files $WERCKER_OUTPUT_DIR/
+          ls -laFl $WERCKER_OUTPUT_DIR/
+
+  after-steps:
+    - slack-notifier:
+        url: $SLACK_URL
+        notify_on: failed
+
+deploy:
+  steps:
+    - script:
+        name: install iron cli
+        code: |
+          apt-get install -y curl
+          curl -sSL http://get.iron.io/cli | sh
+    - script:
+        name: upload to iron
+        code: |
+          echo 'Upload to iron'
+          for LANGUAGE_KEY in $LANGUAGE_KEYS
+          do
+              echo "Upload $LANGUAGE_KEY to iron"
+              iron --env=$IRON_ENV docker login -e $DOCKERHUB_EMAIL -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
+              iron --env=$IRON_ENV register --config-file=$IRON_CONFIG --name=$IRON_WORKER_WORKER_NAME-$LANGUAGE_KEY veritone/$WERCKER_GIT_REPOSITORY:$WERCKER_GIT_COMMIT-$LANGUAGE_KEY
+          done
+
+noop:
+  box: centos:7
+  steps:
+    - script:
+        name: noop
+        code: |
+          echo "noop"
+
+docker-push:
+  box: centos:7
+  steps:
+    - script:
+        name: install nte
+        code: |
+          yum install -y https://s3.amazonaws.com/nuance.veritone.com/3.2.0/nte-3.2.0-201708010842.el6.x86_64.rpm
+    - script:
+        name: install language pack
+        code: |
+          yum install -y https://s3.amazonaws.com/nuance.veritone.com/language_packs/$LANGUAGE_PACK
+    - script:
+        name: transfer application
+        code: |
+          mkdir /app
+          mv $WERCKER_GIT_REPOSITORY /app/
+
+          mv files/LAC19856-7361859_nte.lic /usr/local/Nuance/Transcription_Engine/licenses/license.lic
+          mv files/config.template.yaml /var/local/Nuance/Transcription_Engine/config/config.template.yaml
+          chown nuance:nuance -R /usr/local/Nuance/Transcription_Engine/
+
+          mv files/mime.types /etc/mime.types
+
+          mv $WERCKER_GIT_REPOSITORY.build /app/
+          mv $WERCKER_GIT_REPOSITORY.author /app/
+    - script:
+        name: clean container
+        code: |
+          yum clean all
+          rm -f iron.json
+          ls -laFl
+    - internal/docker-push:
+        username: $DOCKERHUB_USERNAME
+        password: $DOCKERHUB_PASSWORD
+        tag: $WERCKER_GIT_COMMIT-$LANGUAGE_KEY
+        cmd: /app/task-nuance-containerized
+        repository: veritone/$WERCKER_GIT_REPOSITORY
+        registry: https://registry.hub.docker.com
+        env: "LANGUAGE_KEY=$LANGUAGE_KEY"
+        ports: "8080,8078"

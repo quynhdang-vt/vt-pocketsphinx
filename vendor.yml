@@ -1,0 +1,15 @@
+vendors:
+- path: github.com/davecgh/go-spew
+  rev: adab96458c51a58dc1783b3335dcce5461522e75
+- path: github.com/jawher/mow.cli
+  rev: a459d5906bb7a9c5eda7c4d02eec7c541120226e
+- path: github.com/pmezard/go-difflib
+  rev: 792786c7400a136282c1664665ae0a8db921c6c2
+- path: github.com/stretchr/testify
+  rev: 890a5c3458b43e6104ff5da8dfa139d013d77544
+- path: github.com/veritone/go-lattice
+  rev: f8475bff8884631a27b2f9258534db140a9e7bb4
+- path: github.com/xlab/closer
+  rev: 89cd22812c4fd5188746092cd10992caeffc75ab
+- path: github.com/xlab/pocketsphinx-go
+  rev: 8fef98e1a2676575458867bc58110ad4c065b145
