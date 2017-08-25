@@ -15,6 +15,10 @@ type Word struct {
 	PProb      int32
 }
 
+type Response struct {
+	Words []Word
+}
+
 func (w Word) ToUtterance(index int) (lattice.Utterance, error) {
 	startTimeMs := int(w.StartFrame * 10)
 	endTimeMs := int(w.EndFrame * 10)	
@@ -50,9 +54,6 @@ func (w Word) ToUtterance(index int) (lattice.Utterance, error) {
 	return newUtterance, nil
 }
 
-type Response struct {
-	Words []Word
-}
 
 func (s *Response) Append(responseToAppend Response) error {
 	if len(s.Words) == 0 {

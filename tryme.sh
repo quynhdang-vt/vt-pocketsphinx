@@ -1,8 +1,7 @@
 #!/bin/bash
 IMG_NAME=qd-pocketsphinx
 VT_DOCKER_REG=docker.aws-dev.veritone.com/14667
-VT_IMG_TAG=
-
+VT_IMG_TAG=latest
 VT_IMG_NAME=${VT_DOCKER_REG}/${IMG_NAME}:${VT_IMG_TAG}
 
 if [ $# -lt 1 ];
@@ -25,6 +24,6 @@ then
     docker push ${VT_IMG_NAME} 
 elif [ $opt == 'build' ];
 then
-    docker build -t ${IMG_NAME} --build-arg GITHUB_TOKEN=9f7806ece8dac17bc76fd03af64a265c56770c59 .
+    docker build -t ${IMG_NAME} --build-arg GITHUB_TOKEN=${GITHUB_TOKEN} .
     docker tag ${IMG_NAME} ${VT_IMG_NAME}
 fi
