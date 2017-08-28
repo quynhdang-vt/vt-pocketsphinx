@@ -17,7 +17,7 @@ type UnitOfWork struct {
 	Dec        *sphinx.Decoder
 	results    map[string]string
 	infile     *os.File
-	TTMLFileName *tring
+	TTMLFileName *string
 }
 
 // check on the file using the "file" command and see if it's a WAVE file,specifically
@@ -52,7 +52,7 @@ func (u* UnitOfWork) getFile()(err error) {
 	return err
 }
 
-func (u* UnitOfWork) Decode ()(ttml *string ,  err error) {
+func (u* UnitOfWork) Decode ()(ttml *string , transcriptDurationMs int,  err error) {
     err = u.getFile()
 	infileInfo, err:= u.infile.Stat()
 	check(err)
@@ -80,8 +80,8 @@ func (u* UnitOfWork) Decode ()(ttml *string ,  err error) {
 	u.Dec.EndUtt()
 	l.Report() // report results
 	
-	var ttmlFileName, ttml string
-	transcriptDurationMs := 0
+	var ttmlFileName string
+	transcriptDurationMs = 0
 
 
 	// also this is where we got to do the stuff
@@ -102,12 +102,13 @@ func (u* UnitOfWork) Decode ()(ttml *string ,  err error) {
 		err =WriteToFile(*u.InfileName+".json", sJson)
 		// upload ttml
 		transcript := lattice.ToTranscript()
-		ttml = transcript.ToTTML()
+		s := transcript.ToTTML()
+		ttml = &s
 		log.Println("TTML")
 //		log.Println(ttml)
-        ttmlFileName = *u.Infilename+".ttml"
-        u.TTMLFileName = *ttmlFileName
-		err =WriteToFile(*u.InfileName+".ttml", ttml)
+        ttmlFileName = *u.InfileName+".ttml"
+        u.TTMLFileName = &ttmlFileName
+		err =WriteToFile(*u.InfileName+".ttml", *ttml)
 		
 			orderedLattice := lattice.ToOrderedLattice()
 
@@ -118,7 +119,7 @@ func (u* UnitOfWork) Decode ()(ttml *string ,  err error) {
 	}
 	
 	log.Println("The END?.., # of frames ", totalframes)
-	return &ttml, err
+	return ttml, transcriptDurationMs, err
 }
 
 

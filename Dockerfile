@@ -1,10 +1,10 @@
 ## docker build --build-ag
-FROM alpine:3.5 as alpine-tools
+FROM alpine:3.6 as alpine-tools
 MAINTAINER Quynh Dang
 LABEL alpine-version=3.5 cmu-sphinx=latest
 
 RUN apk update && apk add -U ffmpeg
-RUN apk update && apk add -U build-base go git curl libstdc++ alpine-sdk vim tree python python-dev swig libtool autoconf automake bison file
+RUN apk update && apk add -U build-base git curl libstdc++ alpine-sdk vim tree python python-dev swig libtool autoconf automake bison file
 RUN apk add pulseaudio-dev --update-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted
 
 FROM alpine-tools as alpine-cmu-pocketsphinx
@@ -16,7 +16,7 @@ RUN cd /cmusphinx/sphinxbase && ./autogen.sh && ./configure && make clean all &&
 RUN cd /cmusphinx && git clone --recursive https://github.com/cmusphinx/pocketsphinx.git
 RUN cd /cmusphinx/pocketsphinx && ./autogen.sh && ./configure && make clean all && make check && make install
 
-# GO
+# GO 1.8
 #RUN cd /usr/local && curl -O https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz && tar -xvf go1.8.linux-amd64.tar.gz && rm -f go1.8.linux-amd64.tar.gz
 ENV GOPATH /go
 ENV PATH $PATH:/usr/local/go/bin

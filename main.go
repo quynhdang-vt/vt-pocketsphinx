@@ -1,7 +1,8 @@
 package main
 
 import (
-	"context"
+    "io/ioutil"
+    "encoding/json"
 	"github.com/jawher/mow.cli"
 	"github.com/quynhdang-vt/vt-pocketsphinx/cmu_sphinx"
 	"github.com/quynhdang-vt/vt-pocketsphinx/models"
@@ -54,7 +55,7 @@ func getPayload(payloadName string) (p models.Payload) {
 	if err != nil {
 		log.Fatal("Unable to load payload file: " + err.Error())
 	}
-	var p models.Payload
+
 	if err = json.Unmarshal(payloadFile, &p); err != nil {
 		log.Fatal("Error reading payload: " + err.Error())
 	}
@@ -101,13 +102,14 @@ func appRun() {
 
 	/** FOR TESTING ONLY */
 	if len(*infileName) > 0 {
-		processFile(infileName)
+	    w := &cmu_sphinx.UnitOfWork{InfileName: infileName, Dec: dec}
+	    w.Decode()
 		os.Exit(0)
 	}
 
-	if len(payloadName) == 0 ||
-		(len(apiToken) == 0 && len(apiUsername) == 0 && len(apiPassword) == 0) ||
-		len(apiUrl) == 0 {
+	if len(*payloadName) == 0 ||
+		(len(*apiToken) == 0 && len(*apiUsername) == 0 && len(*apiPassword) == 0) ||
+		len(*apiUrl) == 0 {
 		log.Fatal("Not given any context for engine to run??")
 	}
 	// may want to check the apiXXX variable as well.
@@ -117,10 +119,10 @@ func appRun() {
 		APIUsername: apiUsername,
 		APIPassword: apiPassword,
 	}
-	payload := getPayload(payloadName)
+	payload := getPayload(*payloadName)
 	veritoneAPIConfig := veritoneAPI.APIConfig{
-		Token:              apiToken, // add token here
-		BaseURI:            apiUrl,   // Veritone API instance to use (dev/stage/etc.)
+		Token:              *apiToken, // add token here
+		BaseURI:            *apiUrl,   // Veritone API instance to use (dev/stage/etc.)
 		Version:            "",       // API version to use
 		MaxAttempts:        1,        // how many times to call Veritone API for each request until successful response
 		Timeout:            "15s",    // API call timeout (for example: "3s")
@@ -132,10 +134,5 @@ func appRun() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runEngine(payload, engineContext, veritoneAPIClient)
-}
-
-func processFile(infileName *string, dec *Decoder) {
-	w := &cmu_sphinx.UnitOfWork{InfileName: infileName, Dec: dec}
-	err := w.Decode()
+	err = RunEngine(payload, engineContext, dec, veritoneAPIClient)
 }

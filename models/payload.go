@@ -1,5 +1,7 @@
 package models
 
+import ("encoding/json")
+
 // Payload represents the JSON structure of the provided payload file.
 type Payload struct {
 	ApplicationID string `json:"applicationId"`
@@ -13,8 +15,8 @@ func (e Payload) String() string {
 }
 
 type EngineContext struct {
-	APIToken     string
-	APIURL       string
-	APIUsername  string
-	APIPassword  string
+	APIToken     *string
+	APIUrl       *string
+	APIUsername  *string
+	APIPassword  *string
 }

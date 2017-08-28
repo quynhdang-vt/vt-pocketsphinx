@@ -5,20 +5,26 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
+	"github.com/xlab/pocketsphinx-go/sphinx"
+	veritoneAPI "github.com/veritone/go-veritone-api"	
+	"github.com/quynhdang-vt/vt-pocketsphinx/cmu_sphinx"
+	"context"
+	"fmt"
+	"sort"
+	"bytes"
+	"log"
 )
 
-func downloadFile(url string, prefix string) (filepath string, err error) {
+func downloadFile(url string, prefix string) (filepath *string, err error) {
 
 	out, err := ioutil.TempFile("", prefix)
-	// Create the file
-	out, err := os.Create(filepath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer out.Close()
 
-	filepath := out.Name()
+	s := out.Name()
+	filepath = &s
 
 	// Get the data
 	resp, err := http.Get(url)
@@ -37,11 +43,11 @@ func downloadFile(url string, prefix string) (filepath string, err error) {
 }
 
 /** as outlined in https://veritone-developer.atlassian.net/wiki/spaces/DOC/pages/15106076/Engine+Execution+Process */
-func runEngine(payload models.Payload, engineContext models.EngineContext,
+func RunEngine(payload models.Payload, engineContext models.EngineContext,
 	dec *sphinx.Decoder,
 	veritoneAPIClient veritoneAPI.VeritoneAPIClient) (err error) {
 	// Set task to running
-	err := veritoneAPIClient.UpdateTaskStatus(context.Background(), payload.JobID, payload.TaskID, veritoneAPI.TaskStatusRunning, nil)
+	err = veritoneAPIClient.UpdateTaskStatus(context.Background(), payload.JobID, payload.TaskID, veritoneAPI.TaskStatusRunning, nil)
 	if err != nil {
 		// continue on failure
 		fmt.Printf("failed to set task to running, continuing execution regardless: %s\n", err)
@@ -62,7 +68,7 @@ func runEngine(payload models.Payload, engineContext models.EngineContext,
 	}
 
 	assetURI := ""
-
+/*
 	if payload.AssetID != "" {
 		for _, asset := range recording.Assets {
 			if asset.AssetID == payload.AssetID {
@@ -75,13 +81,14 @@ func runEngine(payload models.Payload, engineContext models.EngineContext,
 			return fmt.Errorf("unable to find specified assetId")
 		}
 	} else {
+*/
 		// Use oldest asset as default
 		sort.SliceStable(recording.Assets, func(i, j int) bool {
 			return recording.Assets[i].CreatedDateTime < recording.Assets[j].CreatedDateTime
 		})
 
 		assetURI = recording.Assets[0].SignedURI
-	}
+//	}
 
 	// assetURI has the file
 	prefix := "vt-pocketsphinx-" + payload.RecordingID + "-" + payload.JobID + "-" + payload.TaskID
@@ -89,13 +96,13 @@ func runEngine(payload models.Payload, engineContext models.EngineContext,
 	if err != nil {
 		return fmt.Errorf("Failed to download recording with prefix == " + prefix)
 	}
-	w := &cmu_sphinx.UnitOfWork{InfileName: &filepath, Dec: dec}
+	w := &cmu_sphinx.UnitOfWork{InfileName: filepath, Dec: dec}
 	ttml, transcriptDurationMs, err := w.Decode()
 	if err != nil {
-		return fmt.Errorf("Failed to process file " + filepath)
+		return fmt.Errorf("Failed to process file " + *filepath)
 	}
 
-	ttmlBytes := []byte(ttml)
+	ttmlBytes := []byte(*ttml)
 
 	ttmlAsset := veritoneAPI.Asset{
 		AssetType:   "transcript",
@@ -107,11 +114,12 @@ func runEngine(payload models.Payload, engineContext models.EngineContext,
 		},
 	}
 
-	_, err = veritoneAPIClient.CreateAsset(context.Background(), payload.RecordingID, bytes.NewReader(ttmlBytes), ttmlAsset)
+	asset, _, err := veritoneAPIClient.CreateAsset(context.Background(), payload.RecordingID, bytes.NewReader(ttmlBytes), ttmlAsset)
 	if err != nil {
 		return fmt.Errorf("failed to create ttmlAsset: %s", err)
 	}
 
+    log.Printf("Created asset %v", asset)
 	// Set task to complete
 	err = veritoneAPIClient.UpdateTaskStatus(
 		context.Background(),
@@ -125,5 +133,5 @@ func runEngine(payload models.Payload, engineContext models.EngineContext,
 	if err != nil {
 		return fmt.Errorf("failed to set task to complete: %s", err)
 	}
-
+    return err
 }
