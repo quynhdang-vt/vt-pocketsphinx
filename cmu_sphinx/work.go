@@ -17,6 +17,7 @@ type UnitOfWork struct {
 	Dec        *sphinx.Decoder
 	results    map[string]string
 	infile     *os.File
+	TTMLFileName *tring
 }
 
 // check on the file using the "file" command and see if it's a WAVE file,specifically
@@ -101,6 +102,8 @@ func (u* UnitOfWork) Decode ()(err error) {
 		ttml := transcript.ToTTML()
 		log.Println("TTML")
 //		log.Println(ttml)
+        ttmlFileName := *u.Infilename+".ttml"
+        u.TTMLFileName = *ttmlFileName
 		err =WriteToFile(*u.InfileName+".ttml", ttml)
 				
 	}

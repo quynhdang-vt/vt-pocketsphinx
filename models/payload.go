@@ -7,3 +7,7 @@ type Payload struct {
 	TaskID        string `json:"taskId"`
 	RecordingID   string `json:"recordingId"`
 }
+func (e Payload) String() string {
+	pretty, _ := json.MarshalIndent(&e, "", "\t")
+	return string(pretty)
+}
