@@ -1,5 +1,5 @@
 {
-  "engineId": "0fdfa1bc-1248-4e0a-a58b-013356343a23"
+  "engineId": "0fdfa1bc-1248-4e0a-a58b-013356343a23",
   "categoryName": "transcription",
   "url": "https://www.veritone.com/wp/cognitive-engines/transcription-engine/",
   "preferredInputFormat": "audio/wav",
@@ -9,7 +9,7 @@
   ],
   "outputFormats":
   [
-    "application/ttml+xml",
+    "application/ttml+xml"
   ],
   "isPublic": true,
   "vCPU": 1.0,
