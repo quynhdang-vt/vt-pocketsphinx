@@ -11,3 +11,10 @@ func (e Payload) String() string {
 	pretty, _ := json.MarshalIndent(&e, "", "\t")
 	return string(pretty)
 }
+
+type EngineContext struct {
+	APIToken     string
+	APIURL       string
+	APIUsername  string
+	APIPassword  string
+}

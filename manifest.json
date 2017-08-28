@@ -5,8 +5,7 @@
   "preferredInputFormat": "audio/wav",
   "supportedInputFormats":
   [
-    "audio/wav",
-    "audio/mpeg",
+    "audio/wav"
   ],
   "outputFormats":
   [
@@ -16,7 +15,7 @@
   "vCPU": 1.0,
   "concurrency": 50,
   "maxFileMb": 1200.0,
-  "minMediaLengthMs": 1000,
+  "minMediaLengthMs": 15000,
   "maxMediaLengthMs":  300000,
   "releaseNotes": "Initial release"
 }

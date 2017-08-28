@@ -52,7 +52,7 @@ func (u* UnitOfWork) getFile()(err error) {
 	return err
 }
 
-func (u* UnitOfWork) Decode ()(err error) {
+func (u* UnitOfWork) Decode ()(ttml *string ,  err error) {
     err = u.getFile()
 	infileInfo, err:= u.infile.Stat()
 	check(err)
@@ -80,7 +80,10 @@ func (u* UnitOfWork) Decode ()(err error) {
 	u.Dec.EndUtt()
 	l.Report() // report results
 	
-	
+	var ttmlFileName, ttml string
+	transcriptDurationMs := 0
+
+
 	// also this is where we got to do the stuff
 	if l.Response.Words != nil {
 		// see if we can convert to lattice
@@ -99,17 +102,23 @@ func (u* UnitOfWork) Decode ()(err error) {
 		err =WriteToFile(*u.InfileName+".json", sJson)
 		// upload ttml
 		transcript := lattice.ToTranscript()
-		ttml := transcript.ToTTML()
+		ttml = transcript.ToTTML()
 		log.Println("TTML")
 //		log.Println(ttml)
-        ttmlFileName := *u.Infilename+".ttml"
+        ttmlFileName = *u.Infilename+".ttml"
         u.TTMLFileName = *ttmlFileName
 		err =WriteToFile(*u.InfileName+".ttml", ttml)
-				
+		
+			orderedLattice := lattice.ToOrderedLattice()
+
+			if len(orderedLattice) != 0 {
+				transcriptDurationMs = orderedLattice[len(orderedLattice)-1].StopTimeMs
+			}
+						
 	}
 	
 	log.Println("The END?.., # of frames ", totalframes)
-	return err
+	return &ttml, err
 }
 
 
