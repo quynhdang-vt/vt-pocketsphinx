@@ -17,11 +17,12 @@ import (
 
 func downloadFile(url string, prefix string) (filepath *string, err error) {
 
+    log.Printf("downloadFile ENTER url=%s --> %s\n", url, prefix)
 	out, err := ioutil.TempFile("", prefix)
 	if err != nil {
 		return nil, err
 	}
-	defer out.Close()
+	defer func() { out.Close(); log.Printf("downloadFile EXIT") } ()
 
 	s := out.Name()
 	filepath = &s
@@ -46,6 +47,10 @@ func downloadFile(url string, prefix string) (filepath *string, err error) {
 func RunEngine(payload models.Payload, engineContext models.EngineContext,
 	dec *sphinx.Decoder,
 	veritoneAPIClient veritoneAPI.VeritoneAPIClient) (err error) {
+		
+		log.Println("RunEngine started..")
+		defer log.Println("RunEngine exited..")
+		
 	// Set task to running
 	err = veritoneAPIClient.UpdateTaskStatus(context.Background(), payload.JobID, payload.TaskID, veritoneAPI.TaskStatusRunning, nil)
 	if err != nil {
@@ -54,6 +59,7 @@ func RunEngine(payload models.Payload, engineContext models.EngineContext,
 	}
 
 	// Get Recording Assets
+	log.Printf("Getting recording %v\n", payload.RecordingID)
 	recording, err := veritoneAPIClient.GetRecording(context.Background(), payload.RecordingID)
 	if err != nil {
 		return fmt.Errorf("error getting recording: %s", err)
@@ -87,6 +93,8 @@ func RunEngine(payload models.Payload, engineContext models.EngineContext,
 			return recording.Assets[i].CreatedDateTime < recording.Assets[j].CreatedDateTime
 		})
 
+        // Need to loop thru and looking for files that we can do,
+        // either audio/wav or audio/mpeg
 		assetURI = recording.Assets[0].SignedURI
 //	}
 

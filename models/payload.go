@@ -1,6 +1,9 @@
 package models
 
-import ("encoding/json")
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Payload represents the JSON structure of the provided payload file.
 type Payload struct {
@@ -19,4 +22,8 @@ type EngineContext struct {
 	APIUrl       *string
 	APIUsername  *string
 	APIPassword  *string
+}
+
+func (e EngineContext) String() string {
+    return fmt.Sprintf("API: %v, token: %v, username: %v..", *e.APIUrl, *e.APIToken, *e.APIUsername)
 }

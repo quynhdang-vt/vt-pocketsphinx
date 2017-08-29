@@ -5,7 +5,8 @@
   "preferredInputFormat": "audio/wav",
   "supportedInputFormats":
   [
-    "audio/wav"
+    "audio/wav",
+    "audio/mpeg"
   ],
   "outputFormats":
   [

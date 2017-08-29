@@ -11,6 +11,8 @@ import (
 	"github.com/xlab/pocketsphinx-go/sphinx"
 	"log"
 	"os"
+	"net/url"
+	"fmt"
 )
 
 const (
@@ -32,7 +34,7 @@ var (
 	hmm        = app.StringOpt("hmm", "/usr/local/share/pocketsphinx/model/en-us/en-us", "Sets directory containing acoustic model files.")
 	dict       = app.StringOpt("dict", "/usr/local/share/pocketsphinx/model/en-us/cmudict-en-us.dict", "Sets main pronunciation dictionary (lexicon) input file..")
 	lm         = app.StringOpt("lm", "/usr/local/share/pocketsphinx/model/en-us/en-us.lm.bin", "Sets word trigram language model input file.")
-	logfile    = app.StringOpt("log", "/var/log/pocketsphinx.log", "Log file to write log to.")
+	logfile    = app.StringOpt("log", "/tmp/pocketsphinx.log", "Log file to write log to.")
 	stdout     = app.BoolOpt("stdout", false, "Disables log file and writes everything to stdout.")
 	infileName = app.StringOpt("in", "", "wave file must be certain format")
 	outraw     = app.StringOpt("outraw", "/tmp", "Specify output dir for RAW recorded sound files (s16le). Directory must exist.")
@@ -43,6 +45,9 @@ var (
 	apiUrl      = app.StringOpt("apiUrl", os.Getenv("API_URL"), "API url")
 	apiUsername = app.StringOpt("apiUsername", os.Getenv("API_USERNAME"), "API user name")
 	apiPassword = app.StringOpt("apiPassword", os.Getenv("API_PASSWORD"), "API password")
+	
+	SupportFileTypes = [2]string{"audio/wav", "audio/mpeg"}
+
 )
 
 // processPayload loads the payload file.
@@ -70,6 +75,21 @@ func main() {
 	app.Run(os.Args)
 }
 
+func parseAPIUrl(rawurl string) (baseURL string, pathNoSlash string){
+	url, err:= url.Parse(rawurl)
+	if err !=nil {
+		log.Fatalf("Error parsing url=%v, err=%v", rawurl, err)
+	}
+	if ( len(url.Port()) > 0) {
+		baseURL = fmt.Sprintf("%s://%s:%s", url.Scheme, url.Hostname(), url.Port())
+	} else {
+		baseURL = fmt.Sprintf("%s://%s", url.Scheme, url.Hostname())
+	}
+	if (len(url.Path)>1) {
+		pathNoSlash=url.Path[1:len(url.Path)]
+	}
+	return baseURL, pathNoSlash
+}
 func appRun() {
 	defer closer.Close()
 	closer.Bind(func() {
@@ -89,7 +109,6 @@ func appRun() {
 	if *stdout == false {
 		sphinx.LogFileOption(*logfile)(sphinxCfg)
 	}
-
 	log.Println("Loading CMU PocketSphinx.")
 	log.Println("This may take a while depending on the size of your model.")
 	dec, err := sphinx.NewDecoder(sphinxCfg)
@@ -112,6 +131,10 @@ func appRun() {
 		len(*apiUrl) == 0 {
 		log.Fatal("Not given any context for engine to run??")
 	}
+		
+	// the API_URL may be of this format: https://api.aws-dev.veritone.com/v1/
+	// need to parse it and get the host:port since the go-veritone-api assumes base	
+
 	// may want to check the apiXXX variable as well.
 	engineContext := models.EngineContext{
 		APIToken:    apiToken,
@@ -119,11 +142,14 @@ func appRun() {
 		APIUsername: apiUsername,
 		APIPassword: apiPassword,
 	}
+	log.Println (" --------- ENGINE info ------------")
+	log.Printf("Engine Context: %+v\n", engineContext)
 	payload := getPayload(*payloadName)
+	baseURL, version := parseAPIUrl(*apiUrl)
 	veritoneAPIConfig := veritoneAPI.APIConfig{
 		Token:              *apiToken, // add token here
-		BaseURI:            *apiUrl,   // Veritone API instance to use (dev/stage/etc.)
-		Version:            "",       // API version to use
+		BaseURI:            baseURL,   // Veritone API instance to use (dev/stage/etc.)
+		Version:            version,       // API version to use
 		MaxAttempts:        1,        // how many times to call Veritone API for each request until successful response
 		Timeout:            "15s",    // API call timeout (for example: "3s")
 		CreateAssetTimeout: "3m",     // CreateAsset API call timeout (for example: "1m")

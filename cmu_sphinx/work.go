@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"bufio"
@@ -19,6 +20,7 @@ type UnitOfWork struct {
 	infile     *os.File
 	TTMLFileName *string
 }
+
 
 // check on the file using the "file" command and see if it's a WAVE file,specifically
 // RIFF (little-endian) data, WAVE audio, Microsoft PCM, 16 bit, mono
@@ -38,7 +40,12 @@ func (u* UnitOfWork) getFile()(err error) {
     var fileOK bool
 	if  fileOK, fileTypeInfo = u.ValidateInput(); !fileOK  {
 		// TODO need to do something here.. specifically calling ffmpeg to do some conversion?
-		log.Fatal("Invalid input file -- ", fileTypeInfo)
+		// if ASCII then we may want to dump it out for debugging purpose?
+		buf := []byte{}
+		if (strings.Contains(fileTypeInfo, "ASCII")) {
+			buf, err = ioutil.ReadFile(*u.InfileName)
+		}
+		log.Fatalf("Invalid input file, fileTypeInfo=%s\nfileData=>>>\n%v\n<<<<<\n", fileTypeInfo, string(buf))
 	}
 	log.Println(fileTypeInfo)
 	infile, err := os.Open(*u.InfileName)
@@ -53,6 +60,9 @@ func (u* UnitOfWork) getFile()(err error) {
 }
 
 func (u* UnitOfWork) Decode ()(ttml *string , transcriptDurationMs int,  err error) {
+	log.Println("UnitOfWork.Decode ENTER")
+	defer log.Println("UnitOfWork.Decode EXIT")
+	
     err = u.getFile()
 	infileInfo, err:= u.infile.Stat()
 	check(err)
@@ -96,7 +106,7 @@ func (u* UnitOfWork) Decode ()(ttml *string , transcriptDurationMs int,  err err
 			log.Fatalf("failed to marhsal lattice to json: %s", err)
 		}
 		// PRINT
-		log.Println("LATTICE JSON")
+		log.Println(">>>> LATTICE JSON")
 		sJson := string(latticeJSON)
 //		log.Println(sJson)
 		err =WriteToFile(*u.InfileName+".json", sJson)
@@ -104,7 +114,7 @@ func (u* UnitOfWork) Decode ()(ttml *string , transcriptDurationMs int,  err err
 		transcript := lattice.ToTranscript()
 		s := transcript.ToTTML()
 		ttml = &s
-		log.Println("TTML")
+		log.Println(">>>> TTML")
 //		log.Println(ttml)
         ttmlFileName = *u.InfileName+".ttml"
         u.TTMLFileName = &ttmlFileName
@@ -118,7 +128,7 @@ func (u* UnitOfWork) Decode ()(ttml *string , transcriptDurationMs int,  err err
 						
 	}
 	
-	log.Println("The END?.., # of frames ", totalframes)
+	log.Printf("The END?.., # of frames = %v, transcriptDurationMs=%v \n", totalframes, transcriptDurationMs)
 	return ttml, transcriptDurationMs, err
 }
 

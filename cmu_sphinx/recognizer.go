@@ -45,8 +45,10 @@ func (l *Recognizer) Report() {
 		log.Printf("    > hypothesis: %s\n", hyp)
 		l.textHypothesis = hyp
 	    l.speech, l.cpu, l.wall = l.dec.UttDuration()
-     	log.Printf("speech=%v, cpu=%v, wall=%v\n", l.speech, l.cpu, l.wall)	
-     	
+     	log.Printf("Utt duration: speech=%v, cpu=%v, wall=%v\n", l.speech, l.cpu, l.wall)	
+     	allSpeech, allCpu, allWall := l.dec.AllDuration()
+     	log.Printf("All duration: speech=%v, cpu=%v, wall=%v\n", allSpeech, allCpu, allWall)	
+    	
      	// get lattice 
      	// DEBUGGING ONLY
      	lat := l.dec.WordLattice()

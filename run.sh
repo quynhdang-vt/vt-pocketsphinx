@@ -18,7 +18,7 @@ then
   echo "$0 {help, run, push} to run or push.  No option means building."
 elif [ $opt == 'run' ];
 then
-    docker run -it --entrypoint=sh -v /Users/home/go/src/github.com/quynhdang-vt/vt-pocketsphinx:/go/src/github.com/quynhdang-vt/vt-pocketsphinx ${IMG_NAME}
+    docker run -it --entrypoint=sh -v /Users/home/go/src/github.com/quynhdang-vt/vt-pocketsphinx:/go/src/github.com/quynhdang-vt/vt-pocketsphinx -v /Users/home/Documents/testdata:/testdata ${IMG_NAME}
 elif [ $opt == 'push' ];
 then
     start=`date +%s`
