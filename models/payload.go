@@ -11,6 +11,7 @@ type Payload struct {
 	JobID         string `json:"jobId"`
 	TaskID        string `json:"taskId"`
 	RecordingID   string `json:"recordingId"`
+	Token         string `json:"token"`      
 	AssetID       string `json:"assetId"`
 }
 

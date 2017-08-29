@@ -28,16 +28,18 @@ func GetTemporaryFileName (prefix, suffix string) string {
 //eventually may need to do a list? for now assuming 1 
 func ConvertFileToWave16KMono(infile string) (convertedFile string, err error){
 	convertedFile=GetTemporaryFileName("ffmpeg", "wav")
-	out, err := exec.Command("ffmpeg", 
+	_, err = exec.Command("ffmpeg", 
 	  	    "-hide_banner",
 			"-i", infile,
 			"-ar", "16000", // resample audio to 16000Hz 
 			"-ac", "1", // convert to single-channel (mono)
 			"-acodec", "pcm_s16le",
 			convertedFile).Output()
-	log.Printf("Orig=%v, New=%v\n, ConvertFileToWave16KMono: %+v\n", infile, convertedFile, string(out))
+	log.Printf("nConvertFileToWave16KMono Orig=%v, New=%v\n", infile, convertedFile)
 	return convertedFile, err
 }
+
+
 // check on the file using the "file" command and see if it's a WAVE file,specifically
 // RIFF (little-endian) data, WAVE audio, Microsoft PCM, 16 bit, mono
 func  FileTypeSupported(filename string) (res bool, fileTypeInfo string) {
@@ -51,12 +53,12 @@ var SuportedContentTypes = [2]string{"audio/wav", "audio/mpeg"}
 
 func DownloadFile(url string, prefix string) (filepath string, err error) {
 
-	log.Printf("downloadFile ENTER url=%s --> %s\n", url, prefix)
+	log.Printf("DownloadFile ENTER url=%s --> %s\n", url, prefix)
 	out, err := ioutil.TempFile("", prefix)
 	if err != nil {
 		return "", err
 	}
-	defer func() { out.Close(); log.Printf("downloadFile EXIT") }()
+	defer func() { out.Close(); log.Printf("DownloadFile EXIT") }()
 
 	filepath = out.Name()
 
@@ -85,7 +87,7 @@ func IsSupportedContentType(contentType string) bool {
 }
 
 func WriteToFile(fileName string, sdata string) (err error) {
-	log.Printf("Writing to %s\n", fileName)
+	log.Printf("WriteToFile %s\n", fileName)
 	f, err := os.Create(fileName)
 	defer f.Close()
 	CheckError(err)

@@ -2,7 +2,6 @@ package cmu_sphinx
 
 import (
 	"bufio"
-	"encoding/json"
 	"github.com/xlab/closer"
 	"github.com/xlab/pocketsphinx-go/sphinx"
 	qdUtils "github.com/quynhdang-vt/vt-pocketsphinx/utils"
@@ -85,37 +84,38 @@ func (u *UnitOfWork) Decode() (ttml *string, transcriptDurationMs int, err error
 	if l.Response.Words != nil {
 		// see if we can convert to lattice
 		lattice, err := l.Response.ToLattice()
-
-		// then to file?
-		// upload lattice
-		latticeJSON, err := json.Marshal(&lattice)
-		if err != nil {
-			log.Fatalf("failed to marhsal lattice to json: %s", err)
+		if (err==nil) {	
+			/*
+			// Veritone Lattice to JSON
+			latticeJSON, err := json.Marshal(&lattice)
+			if err != nil {
+				log.Fatalf("failed to marhsal lattice to json: %s", err)
+			}		
+			log.Println(">>>> LATTICE JSON")
+			sJson := string(latticeJSON)
+			//		log.Println(sJson)
+			err = qdUtils.WriteToFile(*u.InfileName+".json", sJson)
+			*/
+			
+			// Get TTML, this depends on a specific go-lattice version
+			transcript := lattice.ToTranscript()
+			s := transcript.ToTTML()
+			ttml = &s
+			log.Println(">>>> TTML")
+			//		log.Println(ttml)
+			ttmlFileName = *u.InfileName + ".ttml"
+			u.TTMLFileName = &ttmlFileName
+			err = qdUtils.WriteToFile(*u.InfileName+".ttml", *ttml)
+	
+			orderedLattice := lattice.ToOrderedLattice()
+	
+			if len(orderedLattice) != 0 {
+				transcriptDurationMs = orderedLattice[len(orderedLattice)-1].StopTimeMs
 		}
-		// PRINT
-		log.Println(">>>> LATTICE JSON")
-		sJson := string(latticeJSON)
-		//		log.Println(sJson)
-		err = qdUtils.WriteToFile(*u.InfileName+".json", sJson)
-		// upload ttml
-		transcript := lattice.ToTranscript()
-		s := transcript.ToTTML()
-		ttml = &s
-		log.Println(">>>> TTML")
-		//		log.Println(ttml)
-		ttmlFileName = *u.InfileName + ".ttml"
-		u.TTMLFileName = &ttmlFileName
-		err = qdUtils.WriteToFile(*u.InfileName+".ttml", *ttml)
-
-		orderedLattice := lattice.ToOrderedLattice()
-
-		if len(orderedLattice) != 0 {
-			transcriptDurationMs = orderedLattice[len(orderedLattice)-1].StopTimeMs
 		}
-
 	}
 
-	log.Printf("The END?.., # of frames = %v, transcriptDurationMs=%v \n", totalframes, transcriptDurationMs)
+	log.Printf("# of frames = %v, transcriptDurationMs=%v \n", totalframes, transcriptDurationMs)
 	return ttml, transcriptDurationMs, err
 }
 

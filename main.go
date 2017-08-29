@@ -55,22 +55,29 @@ func getPayload(payloadName string, apiConfigFileName string) (p models.Payload,
 		log.Fatal("No payload provided")
 	}
 	payloadFile, err := ioutil.ReadFile(payloadName)
+	log.Printf(">>>> READING PAYLOAD from %v\nFile Contents: %v\n", payloadName, string(payloadFile))
 	if err != nil {
-		log.Fatal("Unable to load payload file: " + err.Error())
+		log.Fatal("ERROR!!! Unable to load payload file: " + err.Error())
 	}
 
 	if err = json.Unmarshal(payloadFile, &p); err != nil {
 		log.Fatal("Error reading payload: " + err.Error())
 	}
-
+	// see if token is there
+	if len(p.Token) > 0 {
+		e = models.EngineContext{APIToken: p.Token, APIUrl: os.Getenv("API_URL")}
+	}
 	if len(apiConfigFileName) > 0 {
 		apiFileBuf, err := ioutil.ReadFile(apiConfigFileName)
 		if err == nil {
 			if err = json.Unmarshal(apiFileBuf, &e); err != nil {
 				log.Printf("%v is not a JSON file, contents=%v\n", apiConfigFileName, apiFileBuf)
 			}
+		} else {
+			log.Printf(">>>> ENGINE CONTEXT = %v\n", e)
 		}
 	}
+
 	return p, e
 }
 
@@ -83,7 +90,7 @@ func main() {
 func parseAPIUrl(rawurl string) (baseURL string, pathNoSlash string) {
 	url, err := url.Parse(rawurl)
 	if err != nil {
-		log.Fatalf("Error parsing url=%v, err=%v", rawurl, err)
+		log.Fatalf("ERROR!!! parsing url=%v, err=%v", rawurl, err)
 	}
 	if len(url.Port()) > 0 {
 		baseURL = fmt.Sprintf("%s://%s:%s", url.Scheme, url.Hostname(), url.Port())
@@ -114,8 +121,7 @@ func appRun() {
 	if *stdout == false {
 		sphinx.LogFileOption(*logfile)(sphinxCfg)
 	}
-	log.Println("Loading CMU PocketSphinx.")
-	log.Println("This may take a while depending on the size of your model.")
+	log.Println(">>>> Loading CMU PocketSphinx....This may take a while depending on the size of your model.")
 	dec, err := sphinx.NewDecoder(sphinxCfg)
 	if err != nil {
 		closer.Fatalln(err)
@@ -135,10 +141,10 @@ func appRun() {
 	// the API_URL may be of this format: https://api.aws-dev.veritone.com/v1/
 	// need to parse it and get the host:port since the go-veritone-api assumes base
 
-	log.Println(" --------- GETTING ENGINE info ------------")
+	log.Println("--------- GETTING ENGINE info ------------")
 	payload, engineContext := getPayload(*payloadName, *apiConfigFileName)
 	// may want to check the apiXXX variable as well.
-	if len(*apiConfigFileName) == 0 {
+	if len(engineContext.APIToken)==0 && len(*apiConfigFileName) == 0 {
 		engineContext = models.EngineContext{
 			APIToken:    *apiToken,
 			APIUrl:      *apiUrl,
@@ -164,7 +170,10 @@ func appRun() {
 	// Create veritone api client
 	veritoneAPIClient, err := veritoneAPI.New(veritoneAPIConfig)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("ERROR!!! Failure to create an isntance of Veritone API, err=%v\n", err)
 	}
 	err = RunEngine(payload, engineContext, dec, veritoneAPIClient)
+	if (err!=nil){
+		log.Printf("RunEngine got error? err=%v\n", err)
+	}
 }

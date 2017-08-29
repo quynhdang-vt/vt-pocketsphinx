@@ -18,7 +18,7 @@ then
   echo "$0 {help, run, push} to run or push.  No option means building."
 elif [ $opt == 'run' ];
 then
-    docker run -it --entrypoint=sh -v /Users/home/go/src/github.com/quynhdang-vt/vt-pocketsphinx:/go/src/github.com/quynhdang-vt/vt-pocketsphinx -v /Users/home/Documents/testdata:/testdata -e PAYLOAD_FILE=/testdata/vt/engine/payload.json -e API_CONFIG=/testdata/vt/engine/apiConfig.json ${IMG_NAME}
+    docker run -it --entrypoint=sh -v /Users/home/go/src/github.com/quynhdang-vt/vt-pocketsphinx:/go/src/github.com/quynhdang-vt/vt-pocketsphinx -v /Users/home/Documents/testdata:/testdata -e GHT=${GITHUB_TOKEN} -e PAYLOAD_FILE=/testdata/vt/engine/payload.json ${IMG_NAME}
 elif [ $opt == 'push' ];
 then
     start=`date +%s`
@@ -28,6 +28,6 @@ then
     echo "PUSHING took $runtime sec"
 elif [ $opt == 'build' ];
 then
-    docker build --squash -t ${IMG_NAME} --build-arg GITHUB_TOKEN=${GITHUB_TOKEN} .
+    docker build --squash -t ${IMG_NAME} --build-arg GHT=${GITHUB_TOKEN} .
     docker tag ${IMG_NAME} ${VT_IMG_NAME}
 fi

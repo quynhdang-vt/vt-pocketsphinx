@@ -16,10 +16,11 @@ RUN cd /cmusphinx && git clone --recursive https://github.com/cmusphinx/pocketsp
 
 ENV GOPATH /go
 ENV PATH $PATH:/usr/local/go/bin:/go/bin
+ENV API_URL https://api.aws-dev.veritone.com/v1/
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
 
 FROM alpine-cmu-pocketsphinx as qd-pocketsphinx0
-ARG GITHUB_TOKEN
+ARG GHT
 
 ADD . /go/src/github.com/quynhdang-vt/vt-pocketsphinx
 RUN  chmod +x /go/src/github.com/quynhdang-vt/vt-pocketsphinx/setupgo.sh && /go/src/github.com/quynhdang-vt/vt-pocketsphinx/setupgo.sh && mkdir -p /var/log/qd-pocketsphinx && cd /go/src/github.com/quynhdang-vt/vt-pocketsphinx && go get -u github.com/govend/govend && /go/bin/govend -v && go build -o /go/bin/qd-pocketsphinx *.go && rm -f /root/.netrc && rm -rf /go/src/github.com/quynhdang-vt/vt-pocketsphinx

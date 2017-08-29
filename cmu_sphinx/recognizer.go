@@ -39,6 +39,8 @@ func (l *Recognizer) Process(raw []byte, nRaw int) (frames int32) {
 	return frames
 }
 
+
+
 func (l *Recognizer) Report() {
 	hyp, _ := l.dec.Hypothesis()
 	if len(hyp) > 0 {
@@ -51,10 +53,11 @@ func (l *Recognizer) Report() {
 
 		// get lattice
 		// DEBUGGING ONLY
+		/*
 		lat := l.dec.WordLattice()
 		outhtkFileName := *l.infileName + ".htk"
 		lat.WriteToHTK(sphinx.String(outhtkFileName))
-
+		*/
 		// get Segments
 
 		pdec := l.dec.Decoder()
@@ -64,18 +67,23 @@ func (l *Recognizer) Report() {
 		//TODO some intelligence about the size
 		l.Response.Words = make([]Word, 0, 5)
 
+        wordCount := 0
 		for ; seg != nil; seg = pocketsphinx.SegNext(seg) {
 			word := pocketsphinx.SegWord(seg)
 			pocketsphinx.SegFrames(seg, &startFrame, &endFrame)
 			pprob = pocketsphinx.SegProb(seg, &ascr, &lscr, &lback)
+			/*
 			log.Printf("Seg word = %v, startFrame=%v, endFrame=%v, pprob=%v, ascr=%v, lscr=%v, lback=%v",
 				word, startFrame, endFrame, pprob, ascr, lscr, lback)
+			*/
 			l.Response.Words = append(l.Response.Words,
 				Word{Word: word,
 					StartFrame: startFrame, EndFrame: endFrame,
 					AScr: ascr, LScr: lscr,
 					LBack: lback, PProb: pprob})
+			wordCount++
 		}
+		log.Printf("# of words in lattice: %d\n", wordCount)
 		return
 	}
 	log.Println("NO RESULT??")

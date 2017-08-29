@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"github.com/quynhdang-vt/vt-pocketsphinx/cmu_sphinx"
 	"github.com/quynhdang-vt/vt-pocketsphinx/models"
+	qdUtils "github.com/quynhdang-vt/vt-pocketsphinx/utils"
 	veritoneAPI "github.com/veritone/go-veritone-api"
-	qdUtils "github.com/quynhdang-vt/vt-pocketsphinx/utils"	
 	"github.com/xlab/pocketsphinx-go/sphinx"
 	"log"
 	"sort"
+	"time"
 )
-
 
 func getAsset(payload models.Payload, recording *veritoneAPI.Recording) (chosenAsset *veritoneAPI.Asset) {
 
@@ -46,14 +46,14 @@ func RunEngine(payload models.Payload, engineContext models.EngineContext,
 	dec *sphinx.Decoder,
 	veritoneAPIClient veritoneAPI.VeritoneAPIClient) (err error) {
 
-	log.Println("RunEngine started..")
-	defer log.Println("RunEngine exited..")
+	log.Println("==== RunEngine started..")
+	defer log.Println("==== RunEngine exited..")
 
 	// Set task to running
 	err = veritoneAPIClient.UpdateTaskStatus(context.Background(), payload.JobID, payload.TaskID, veritoneAPI.TaskStatusRunning, nil)
 	if err != nil {
 		// continue on failure
-		fmt.Printf("failed to set task to running, continuing execution regardless: %s\n", err)
+		fmt.Printf("Failed to set task to running, ignored: %s\n", err)
 	}
 
 	// Get Recording Assets
@@ -64,7 +64,7 @@ func RunEngine(payload models.Payload, engineContext models.EngineContext,
 	}
 
 	if recording == nil {
-		return fmt.Errorf("recording not found")
+		return fmt.Errorf("recording not found for %s", payload.RecordingID)
 	}
 
 	if len(recording.Assets) == 0 {
@@ -82,12 +82,13 @@ func RunEngine(payload models.Payload, engineContext models.EngineContext,
 	if err != nil {
 		return fmt.Errorf("Failed to download recording with prefix == " + prefix)
 	}
-	// go ahead and make sure to get to the file?
-	filepath, err:=qdUtils.ConvertFileToWave16KMono(origFilepath)
+	// go ahead and convert the file -- for now
+	// TODO eventually we may have to "break" the file up if it is too long 5' is maxed for now
+	filepath, err := qdUtils.ConvertFileToWave16KMono(origFilepath)
 	w := &cmu_sphinx.UnitOfWork{InfileName: &filepath, Dec: dec}
 	ttml, transcriptDurationMs, err := w.Decode()
 	if err != nil {
-		return fmt.Errorf("Failed to process file " + filepath)
+		return fmt.Errorf("Failed to process file %v, err=%v", filepath, err)
 	}
 
 	ttmlBytes := []byte(*ttml)
@@ -96,18 +97,18 @@ func RunEngine(payload models.Payload, engineContext models.EngineContext,
 		AssetType:   "transcript",
 		ContentType: "application/ttml+xml",
 		Metadata: map[string]interface{}{
-			"fileName": "qd-pocketsphinx.ttml",
-			"source":   "qd-pocketsphinx",
+			"fileName": fmt.Sprintf("qd-pocketsphinx-%d.ttml", time.Now().Unix()),
+			"source":   fmt.Sprintf("qd-pocketsphinx:%v", time.Now()),
 			"size":     len(ttmlBytes),
 		},
 	}
 
 	asset, _, err := veritoneAPIClient.CreateAsset(context.Background(), payload.RecordingID, bytes.NewReader(ttmlBytes), ttmlAsset)
 	if err != nil {
-		return fmt.Errorf("failed to create ttmlAsset: %s", err)
+		return fmt.Errorf("Failed to create ttmlAsset: %s", err)
 	}
 
-	log.Printf("Created asset %v", asset)
+	log.Printf("Created asset %v\n", asset)
 	// Set task to complete
 	err = veritoneAPIClient.UpdateTaskStatus(
 		context.Background(),
@@ -119,7 +120,7 @@ func RunEngine(payload models.Payload, engineContext models.EngineContext,
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to set task to complete: %s", err)
+		return fmt.Errorf("Failed to set task %d to complete: %s", err)
 	}
 	return err
 }
