@@ -1,8 +1,8 @@
 package cmu_sphinx
 
 import (
-	"strconv"
 	"github.com/veritone/go-lattice/lattice"
+	"strconv"
 )
 
 type Word struct {
@@ -21,7 +21,7 @@ type Response struct {
 
 func (w Word) ToUtterance(index int) (lattice.Utterance, error) {
 	startTimeMs := int(w.StartFrame * 10)
-	endTimeMs := int(w.EndFrame * 10)	
+	endTimeMs := int(w.EndFrame * 10)
 	durationMs := endTimeMs - startTimeMs
 
 	// Speechmatics confidence is a floating point value with 3 points of precision, ranging from (0,1]
@@ -54,19 +54,18 @@ func (w Word) ToUtterance(index int) (lattice.Utterance, error) {
 	return newUtterance, nil
 }
 
-
 func (s *Response) Append(responseToAppend Response) error {
 	if len(s.Words) == 0 {
 		// The current response is empty, append directly
 		s.Words = append(s.Words, responseToAppend.Words...)
 		return nil
 	}
-    // get the last endFrame?
-    lastFrame:=s.Words[ len(s.Words)-1 ].EndFrame
+	// get the last endFrame?
+	lastFrame := s.Words[len(s.Words)-1].EndFrame
 	for _, word := range responseToAppend.Words {
-		word.StartFrame = word.StartFrame+lastFrame
-		word.EndFrame = word.EndFrame+lastFrame
-	 	s.Words = append(s.Words, word)
+		word.StartFrame = word.StartFrame + lastFrame
+		word.EndFrame = word.EndFrame + lastFrame
+		s.Words = append(s.Words, word)
 	}
 
 	return nil

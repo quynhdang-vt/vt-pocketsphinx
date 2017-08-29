@@ -1,18 +1,18 @@
 package main
 
 import (
-    "io/ioutil"
-    "encoding/json"
+	"encoding/json"
+	"fmt"
 	"github.com/jawher/mow.cli"
 	"github.com/quynhdang-vt/vt-pocketsphinx/cmu_sphinx"
 	"github.com/quynhdang-vt/vt-pocketsphinx/models"
 	veritoneAPI "github.com/veritone/go-veritone-api"
 	"github.com/xlab/closer"
 	"github.com/xlab/pocketsphinx-go/sphinx"
+	"io/ioutil"
 	"log"
-	"os"
 	"net/url"
-	"fmt"
+	"os"
 )
 
 const (
@@ -40,18 +40,16 @@ var (
 	outraw     = app.StringOpt("outraw", "/tmp", "Specify output dir for RAW recorded sound files (s16le). Directory must exist.")
 
 	// as invoked from VDA
-	payloadName = app.StringOpt("payload", os.Getenv("PAYLOAD_FILE"), "payload.json if invoked via veritone")
-	apiToken    = app.StringOpt("apiToken", os.Getenv("API_TOKEN"), "API token")
-	apiUrl      = app.StringOpt("apiUrl", os.Getenv("API_URL"), "API url")
-	apiUsername = app.StringOpt("apiUsername", os.Getenv("API_USERNAME"), "API user name")
-	apiPassword = app.StringOpt("apiPassword", os.Getenv("API_PASSWORD"), "API password")
-	
-	SupportFileTypes = [2]string{"audio/wav", "audio/mpeg"}
-
+	payloadName       = app.StringOpt("payload", os.Getenv("PAYLOAD_FILE"), "payload.json if invoked via veritone")
+	apiConfigFileName = app.StringOpt("apiConfigFileName", os.Getenv("API_CONFIG"), "configuration to geto to VTAPI")
+	apiToken          = app.StringOpt("apiToken", os.Getenv("API_TOKEN"), "API token")
+	apiUrl            = app.StringOpt("apiUrl", os.Getenv("API_URL"), "API url")
+	apiUsername       = app.StringOpt("apiUsername", os.Getenv("API_USERNAME"), "API user name")
+	apiPassword       = app.StringOpt("apiPassword", os.Getenv("API_PASSWORD"), "API password")
 )
 
 // processPayload loads the payload file.
-func getPayload(payloadName string) (p models.Payload) {
+func getPayload(payloadName string, apiConfigFileName string) (p models.Payload, e models.EngineContext) {
 	// Try to load and marshal payload
 	if len(payloadName) == 0 {
 		log.Fatal("No payload provided")
@@ -65,8 +63,15 @@ func getPayload(payloadName string) (p models.Payload) {
 		log.Fatal("Error reading payload: " + err.Error())
 	}
 
-	log.Printf("Payload: %+v\n", p)
-	return p
+	if len(apiConfigFileName) > 0 {
+		apiFileBuf, err := ioutil.ReadFile(apiConfigFileName)
+		if err == nil {
+			if err = json.Unmarshal(apiFileBuf, &e); err != nil {
+				log.Printf("%v is not a JSON file, contents=%v\n", apiConfigFileName, apiFileBuf)
+			}
+		}
+	}
+	return p, e
 }
 
 func main() {
@@ -75,18 +80,18 @@ func main() {
 	app.Run(os.Args)
 }
 
-func parseAPIUrl(rawurl string) (baseURL string, pathNoSlash string){
-	url, err:= url.Parse(rawurl)
-	if err !=nil {
+func parseAPIUrl(rawurl string) (baseURL string, pathNoSlash string) {
+	url, err := url.Parse(rawurl)
+	if err != nil {
 		log.Fatalf("Error parsing url=%v, err=%v", rawurl, err)
 	}
-	if ( len(url.Port()) > 0) {
+	if len(url.Port()) > 0 {
 		baseURL = fmt.Sprintf("%s://%s:%s", url.Scheme, url.Hostname(), url.Port())
 	} else {
 		baseURL = fmt.Sprintf("%s://%s", url.Scheme, url.Hostname())
 	}
-	if (len(url.Path)>1) {
-		pathNoSlash=url.Path[1:len(url.Path)]
+	if len(url.Path) > 1 {
+		pathNoSlash = url.Path[1:len(url.Path)]
 	}
 	return baseURL, pathNoSlash
 }
@@ -121,39 +126,40 @@ func appRun() {
 
 	/** FOR TESTING ONLY */
 	if len(*infileName) > 0 {
-	    w := &cmu_sphinx.UnitOfWork{InfileName: infileName, Dec: dec}
-	    w.Decode()
+		w := &cmu_sphinx.UnitOfWork{InfileName: infileName, Dec: dec}
+		w.Decode()
 		os.Exit(0)
 	}
 
-	if len(*payloadName) == 0 ||
-		(len(*apiToken) == 0 && len(*apiUsername) == 0 && len(*apiPassword) == 0) ||
-		len(*apiUrl) == 0 {
+	// REALL THE ENGINE now
+	// the API_URL may be of this format: https://api.aws-dev.veritone.com/v1/
+	// need to parse it and get the host:port since the go-veritone-api assumes base
+
+	log.Println(" --------- GETTING ENGINE info ------------")
+	payload, engineContext := getPayload(*payloadName, *apiConfigFileName)
+	// may want to check the apiXXX variable as well.
+	if len(*apiConfigFileName) == 0 {
+		engineContext = models.EngineContext{
+			APIToken:    *apiToken,
+			APIUrl:      *apiUrl,
+			APIUsername: *apiUsername, //not really in use.. but..
+			APIPassword: *apiPassword,
+		}
+	}
+	log.Printf("Payload: %+v\nEngine Context: %+v\n", payload, engineContext)
+	if payload.IsInvalid() || engineContext.IsInvalid() {
 		log.Fatal("Not given any context for engine to run??")
 	}
-		
-	// the API_URL may be of this format: https://api.aws-dev.veritone.com/v1/
-	// need to parse it and get the host:port since the go-veritone-api assumes base	
 
-	// may want to check the apiXXX variable as well.
-	engineContext := models.EngineContext{
-		APIToken:    apiToken,
-		APIUrl:      apiUrl,
-		APIUsername: apiUsername,
-		APIPassword: apiPassword,
-	}
-	log.Println (" --------- ENGINE info ------------")
-	log.Printf("Engine Context: %+v\n", engineContext)
-	payload := getPayload(*payloadName)
-	baseURL, version := parseAPIUrl(*apiUrl)
+	baseURL, version := parseAPIUrl(engineContext.APIUrl)
 	veritoneAPIConfig := veritoneAPI.APIConfig{
-		Token:              *apiToken, // add token here
-		BaseURI:            baseURL,   // Veritone API instance to use (dev/stage/etc.)
-		Version:            version,       // API version to use
-		MaxAttempts:        1,        // how many times to call Veritone API for each request until successful response
-		Timeout:            "15s",    // API call timeout (for example: "3s")
-		CreateAssetTimeout: "3m",     // CreateAsset API call timeout (for example: "1m")
-		RetryDelay:         "15s",    // time to wait before each retry
+		Token:              engineContext.APIToken, // add token here
+		BaseURI:            baseURL,                // Veritone API instance to use (dev/stage/etc.)
+		Version:            version,                // API version to use
+		MaxAttempts:        1,                      // how many times to call Veritone API for each request until successful response
+		Timeout:            "15s",                  // API call timeout (for example: "3s")
+		CreateAssetTimeout: "3m",                   // CreateAsset API call timeout (for example: "1m")
+		RetryDelay:         "15s",                  // time to wait before each retry
 	}
 	// Create veritone api client
 	veritoneAPIClient, err := veritoneAPI.New(veritoneAPIConfig)
