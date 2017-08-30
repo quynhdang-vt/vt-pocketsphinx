@@ -13,3 +13,5 @@ vendors:
   rev: 89cd22812c4fd5188746092cd10992caeffc75ab
 - path: github.com/xlab/pocketsphinx-go
   rev: 8fef98e1a2676575458867bc58110ad4c065b145
+- path: github.com/veritone/go-veritone-api
+  rev: c26d5756c7047c2f158fd9cf3822e3e105fd69f6
