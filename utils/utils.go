@@ -49,7 +49,7 @@ func  FileTypeSupported(filename string) (res bool, fileTypeInfo string) {
 	return strings.Contains(fileTypeInfo, okWaveFile), fileTypeInfo
 }
 
-var SuportedContentTypes = [2]string{"audio/wav", "audio/mpeg"}
+var SuportedContentTypes = []string{"audio/wav", "audio/mpeg", "audio/mp3"}
 
 func DownloadFile(url string, prefix string) (filepath string, err error) {
 
