@@ -3,6 +3,7 @@ IMG_NAME=qd-pocketsphinx
 VT_DOCKER_REG=docker.aws-dev.veritone.com/14667
 VT_IMG_TAG=v3
 VT_IMG_NAME=${VT_DOCKER_REG}/${IMG_NAME}:${VT_IMG_TAG}
+ENGINE_ID=0fdfa1bc-1248-4e0a-a58b-013356343a23
 
 if [ $# -lt 1 ];
 then
@@ -28,6 +29,8 @@ then
     echo "PUSHING took $runtime sec"
 elif [ $opt == 'build' ];
 then
-    docker build --squash -t ${IMG_NAME} --build-arg GHT=${GITHUB_TOKEN} .
+    #set ENGINE_ID in manifest.json and Dockerfile
+    sed "s/ENGINE_ID/${ENGINE_ID}/g" manifest.json.template > manifest.json
+    docker build --squash -t ${IMG_NAME} --build-arg GHT=${GITHUB_TOKEN} --build-arg ENGINE_ID=${ENGINE_ID} .
     docker tag ${IMG_NAME} ${VT_IMG_NAME}
 fi

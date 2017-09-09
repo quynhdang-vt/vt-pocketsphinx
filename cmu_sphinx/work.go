@@ -2,14 +2,16 @@ package cmu_sphinx
 
 import (
 	"bufio"
+	"encoding/json"
+	qdUtils "github.com/quynhdang-vt/vt-pocketsphinx/utils"
 	"github.com/xlab/closer"
 	"github.com/xlab/pocketsphinx-go/sphinx"
-	qdUtils "github.com/quynhdang-vt/vt-pocketsphinx/utils"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+	"fmt"
 )
 
 type UnitOfWork struct {
@@ -19,8 +21,6 @@ type UnitOfWork struct {
 	infile       *os.File
 	TTMLFileName *string
 }
-
-
 
 func (u *UnitOfWork) getFile() (err error) {
 	var fileTypeInfo string
@@ -33,7 +33,7 @@ func (u *UnitOfWork) getFile() (err error) {
 			buf, err = ioutil.ReadFile(*u.InfileName)
 			log.Printf("unsupported ASCII: >>>%v<<<\n", buf)
 		}
-		log.Fatal("Invalid input file")
+		return fmt.Errorf("Invalid input file format")
 	}
 	infile, err := os.Open(*u.InfileName)
 	u.infile = infile
@@ -46,76 +46,89 @@ func (u *UnitOfWork) getFile() (err error) {
 	return err
 }
 
-func (u *UnitOfWork) Decode() (ttml *string, transcriptDurationMs int, err error) {
+func (u *UnitOfWork) Decode() (ttml []byte, latticeJson []byte, interesting_tidbits map[string]string, err error) {
 	log.Println("UnitOfWork.Decode ENTER")
 	defer log.Println("UnitOfWork.Decode EXIT")
 
 	err = u.getFile()
-	infileInfo, err := u.infile.Stat()
-	qdUtils.CheckError(err)
+	if err!=nil {
+		return nil, nil, nil, err
+	}
+	_, err = u.infile.Stat()
+	if err!=nil {
+		return nil, nil, nil, err
+	}
 
-	log.Printf("Processing %s, len=%d\n", infileInfo.Name(), infileInfo.Size())
-	//    _, err = infile.Seek(44, 0)
-	//    qdUtils.CheckError(err)
+//	log.Printf("Processing %s, len=%d\n", infileInfo.Name(), infileInfo.Size())
 
 	var stream *bufio.Reader = bufio.NewReader(u.infile)
 
 	in := make([]byte, 2048, 2048)
 
 	l := &Recognizer{dec: u.Dec, infileName: u.InfileName}
-	u.Dec.StartUtt()
-	var totalframes int32
+	if (!u.Dec.StartUtt()) {
+		return nil, nil, nil, fmt.Errorf("Failed to start processing...")
+	}
+	utt_started := false
+
+	var totalFrames, nFrames int32
 	for {
 		nRead, err := stream.Read(in)
-		//		log.Printf("Reading %d\n", nRead)
-
 		if nRead == 0 || err == io.EOF {
 			break
 		}
-		totalframes += l.Process(in, nRead)
+		nFrames, err = l.Process(in, nRead)
+		totalFrames+=nFrames
+		if ( u.Dec.IsInSpeech() ){
+			utt_started = true
+		} else if utt_started {
+			u.Dec.EndUtt()
+			utt_started=false
+			l.CollectData()
+			u.Dec.StartUtt()
+		}
 	}
+	// wrapped up
 	u.Dec.EndUtt()
-	l.Report() // report results
+	if (utt_started) {
+		l.CollectData()
+	}
 
-	var ttmlFileName string
-	transcriptDurationMs = 0
+	interesting_tidbits = make(map[string]string)
 
-	// also this is where we got to do the stuff
+
 	if l.Response.Words != nil {
 		// see if we can convert to lattice
 		lattice, err := l.Response.ToLattice()
-		if (err==nil) {	
-			/*
+		if err == nil {
+
 			// Veritone Lattice to JSON
-			latticeJSON, err := json.Marshal(&lattice)
+			latticeJson, err = json.Marshal(&lattice)
 			if err != nil {
 				log.Fatalf("failed to marhsal lattice to json: %s", err)
-			}		
+			}
+			/** DEBUG
 			log.Println(">>>> LATTICE JSON")
-			sJson := string(latticeJSON)
-			//		log.Println(sJson)
-			err = qdUtils.WriteToFile(*u.InfileName+".json", sJson)
+
+			ss := string(latticeJSON)
+			qdUtils.WriteToFile(*u.InfileName+".json", ss)
 			*/
-			
+
 			// Get TTML, this depends on a specific go-lattice version
 			transcript := lattice.ToTranscript()
 			s := transcript.ToTTML()
-			ttml = &s
+			ttml = []byte(s)
+			/*
 			log.Println(">>>> TTML")
-			//		log.Println(ttml)
-			ttmlFileName = *u.InfileName + ".ttml"
+
 			u.TTMLFileName = &ttmlFileName
 			err = qdUtils.WriteToFile(*u.InfileName+".ttml", *ttml)
-	
-			orderedLattice := lattice.ToOrderedLattice()
-	
-			if len(orderedLattice) != 0 {
-				transcriptDurationMs = orderedLattice[len(orderedLattice)-1].StopTimeMs
-		}
+			*/
+			interesting_tidbits["speech_time"] = fmt.Sprintf("%v", l.speech)
+			interesting_tidbits["cpu_time"] = fmt.Sprintf("%v", l.cpu)
+			interesting_tidbits["total_frames"] = fmt.Sprintf("%v", totalFrames)
 		}
 	}
 
-	log.Printf("# of frames = %v, transcriptDurationMs=%v \n", totalframes, transcriptDurationMs)
-	return ttml, transcriptDurationMs, err
+	return ttml, latticeJson, interesting_tidbits, err
 }
-

@@ -23,24 +23,29 @@ const (
 
 /**
 PAYLOAD_FILE --> Payload JSON
-API_URL: where to find API
-API_TOKEN: authorization token to use on API requests
+API_URL: where to find API  >> for now DEV URL is built into the Docker images
 
+For initial development to get a token, will need the username, pw
 API_USERNAME: API username
 API_PASSWORD: API password
 */
 var (
-	app        = cli.App("qd-pocketsphinx", "Transcription engine using CMU pocketsphinx.")
-	hmm        = app.StringOpt("hmm", "/usr/local/share/pocketsphinx/model/en-us/en-us", "Sets directory containing acoustic model files.")
-	dict       = app.StringOpt("dict", "/usr/local/share/pocketsphinx/model/en-us/cmudict-en-us.dict", "Sets main pronunciation dictionary (lexicon) input file..")
-	lm         = app.StringOpt("lm", "/usr/local/share/pocketsphinx/model/en-us/en-us.lm.bin", "Sets word trigram language model input file.")
+	app = cli.App("qd-pocketsphinx", "Transcription engine using CMU pocketsphinx.")
+
+	// define your model with the hmm, dict, lm --> may need to get this somewhere eventually
+	hmm  = app.StringOpt("hmm", "/usr/local/share/pocketsphinx/model/en-us/en-us", "Sets directory containing acoustic model files.")
+	dict = app.StringOpt("dict", "/usr/local/share/pocketsphinx/model/en-us/cmudict-en-us.dict", "Sets main pronunciation dictionary (lexicon) input file..")
+	lm   = app.StringOpt("lm", "/usr/local/share/pocketsphinx/model/en-us/en-us.lm.bin", "Sets word trigram language model input file.")
+
 	logfile    = app.StringOpt("log", "/tmp/pocketsphinx.log", "Log file to write log to.")
 	stdout     = app.BoolOpt("stdout", false, "Disables log file and writes everything to stdout.")
 	infileName = app.StringOpt("in", "", "wave file must be certain format")
 	outraw     = app.StringOpt("outraw", "/tmp", "Specify output dir for RAW recorded sound files (s16le). Directory must exist.")
 
 	// as invoked from VDA
-	payloadName       = app.StringOpt("payload", os.Getenv("PAYLOAD_FILE"), "payload.json if invoked via veritone")
+	payloadName = app.StringOpt("payload", os.Getenv("PAYLOAD_FILE"), "payload.json if invoked via veritone")
+
+	// For local testing
 	apiConfigFileName = app.StringOpt("apiConfigFileName", os.Getenv("API_CONFIG"), "configuration to geto to VTAPI")
 	apiToken          = app.StringOpt("apiToken", os.Getenv("API_TOKEN"), "API token")
 	apiUrl            = app.StringOpt("apiUrl", os.Getenv("API_URL"), "API url")
@@ -105,7 +110,7 @@ func parseAPIUrl(rawurl string) (baseURL string, pathNoSlash string) {
 func appRun() {
 	defer closer.Close()
 	closer.Bind(func() {
-		log.Println("Bye!")
+		log.Println("Finished!")
 	})
 
 	// Init CMUSphinx
@@ -130,21 +135,22 @@ func appRun() {
 		dec.Destroy()
 	})
 
-	/** FOR TESTING ONLY */
+	/** LOCAL TESTING ONLY */
 	if len(*infileName) > 0 {
 		w := &cmu_sphinx.UnitOfWork{InfileName: infileName, Dec: dec}
-		w.Decode()
+		ttml, latticeJson, interesting_tidbits, _ := w.Decode()
+		log.Printf("TTML\n%s\n\n\nJSON\n%s\n\n\nINTERESTING\n%v\n", ttml, latticeJson, interesting_tidbits)
 		os.Exit(0)
 	}
 
-	// REALL THE ENGINE now
-	// the API_URL may be of this format: https://api.aws-dev.veritone.com/v1/
+	// START of the ENGINE now
+	// the API_URL will be of this format: https://api.aws-dev.veritone.com/v1/
 	// need to parse it and get the host:port since the go-veritone-api assumes base
 
 	log.Println("--------- GETTING ENGINE info ------------")
 	payload, engineContext := getPayload(*payloadName, *apiConfigFileName)
 	// may want to check the apiXXX variable as well.
-	if len(engineContext.APIToken)==0 && len(*apiConfigFileName) == 0 {
+	if len(engineContext.APIToken) == 0 && len(*apiConfigFileName) == 0 {
 		engineContext = models.EngineContext{
 			APIToken:    *apiToken,
 			APIUrl:      *apiUrl,
@@ -153,6 +159,9 @@ func appRun() {
 		}
 	}
 	log.Printf("Payload: %+v\nEngine Context: %+v\n", payload, engineContext)
+
+	// TODO need to get token if given username,pw for local dev effort
+
 	if payload.IsInvalid() || engineContext.IsInvalid() {
 		log.Fatal("Not given any context for engine to run??")
 	}
@@ -170,10 +179,10 @@ func appRun() {
 	// Create veritone api client
 	veritoneAPIClient, err := veritoneAPI.New(veritoneAPIConfig)
 	if err != nil {
-		log.Fatalf("ERROR!!! Failure to create an isntance of Veritone API, err=%v\n", err)
+		log.Fatalf("ERROR!!! Failure to create an instance of Veritone API, err=%v\n", err)
 	}
 	err = RunEngine(payload, engineContext, dec, veritoneAPIClient)
-	if (err!=nil){
+	if err != nil {
 		log.Printf("RunEngine got error? err=%v\n", err)
 	}
 }

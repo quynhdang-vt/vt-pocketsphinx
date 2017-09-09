@@ -7,41 +7,36 @@ import (
 
 type Word struct {
 	Word       string
-	StartFrame int32
-	EndFrame   int32
+	StartTime int32
+	EndTime   int32
 	AScr       int32
 	LScr       int32
 	LBack      int32
 	PProb      int32
+	Confidence       float64
 }
 
 type Response struct {
 	Words []Word
+	// Also Hypothesis
+	Hypotheses [] string
 }
 
 func (w Word) ToUtterance(index int) (lattice.Utterance, error) {
-	startTimeMs := int(w.StartFrame * 10)
-	endTimeMs := int(w.EndFrame * 10)
-	durationMs := endTimeMs - startTimeMs
 
-	// Speechmatics confidence is a floating point value with 3 points of precision, ranging from (0,1]
-	// e.g. 0.984
-	// We convert this into an integer value ranging from 0-1000
-	// e.g. 984
-	confidenceRaw := 1
-	confidenceInt := int(confidenceRaw * 1000)
+	durationMs := w.EndTime - w.StartTime
 
+
+	confidenceInt := int(w.Confidence * 1000)
 	newUtterance := lattice.Utterance{
 		Index:       index,
-		StartTimeMs: startTimeMs,
-		StopTimeMs:  endTimeMs,
-		DurationMs:  durationMs,
+		StartTimeMs: int(w.StartTime),
+		StopTimeMs:  int(w.EndTime),
+		DurationMs:  int(durationMs),
 		Words: lattice.UtteranceWords{
 			&lattice.UtteranceWord{
 				Word:       w.Word,
 				Confidence: confidenceInt,
-
-				// Since the full lattice isn't provided we use the default values for the following fields.
 				BestPathForward:  true,
 				BestPathBackward: true,
 				SpanningForward:  false,
@@ -61,10 +56,10 @@ func (s *Response) Append(responseToAppend Response) error {
 		return nil
 	}
 	// get the last endFrame?
-	lastFrame := s.Words[len(s.Words)-1].EndFrame
+	lastTime := s.Words[len(s.Words)-1].EndTime
 	for _, word := range responseToAppend.Words {
-		word.StartFrame = word.StartFrame + lastFrame
-		word.EndFrame = word.EndFrame + lastFrame
+		word.StartTime = word.StartTime + lastTime
+		word.EndTime = word.EndTime + lastTime
 		s.Words = append(s.Words, word)
 	}
 

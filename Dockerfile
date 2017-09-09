@@ -29,3 +29,5 @@ ENTRYPOINT ["/go/bin/qd-pocketsphinx"]
 ## for Veritone
 FROM qd-pocketsphinx0 as qd-pocketsphinx
 ADD manifest.json /var/
+ARG ENGINE_ID 
+ENV ENGINE_ID $ENGINE_ID

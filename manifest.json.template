@@ -1,0 +1,22 @@
+{
+  "engineId": "ENGINE_ID",
+  "category": "transcription",
+  "url": "https://www.veritone.com/wp/cognitive-engines/transcription-engine/",
+  "preferredInputFormat": "audio/wav",
+  "supportedInputFormats":
+  [
+    "audio/wav",
+    "audio/mpeg"
+  ],
+  "outputFormats":
+  [
+    "application/ttml+xml"
+  ],
+  "isPublic": true,
+  "vCPU": 1.0,
+  "concurrency": 50,
+  "maxFileMb": 1200.0,
+  "minMediaLengthMs": 15000,
+  "maxMediaLengthMs":  300000,
+  "releaseNotes": "Initial release"
+}
